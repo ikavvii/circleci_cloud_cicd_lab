@@ -1,0 +1,63 @@
+version: 2.1
+
+jobs:
+  test:
+    docker:
+      - image: cimg/node:26.9.0
+    steps:
+      - checkout
+      - run:
+          name: Show Node and npm versions
+          command: |
+            node --version
+            npm --version
+      - run:
+          name: Install dependencies
+          command: npm ci
+      - run:
+          name: Run automated tests
+          command: npm test
+
+  build:
+    docker:
+      - image: cimg/node:26.9.0
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: npm ci
+      - run:
+          name: Build application
+          command: npm run build
+      - persist_to_workspace:
+          root: .
+          paths:
+            - dist
+
+  deliver:
+    docker:
+      - image: cimg/node:26.9.0
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Verify delivery package
+          command: |
+            test -f dist/index.html
+            test -f dist/build-info.txt
+            echo "Delivery package is ready."
+            find dist -maxdepth 2 -type f -print
+      - store_artifacts:
+          path: dist
+          destination: website
+
+workflows:
+  ci_cd_pipeline:
+    jobs:
+      - test
+      - build:
+          requires:
+            - test
+      - deliver:
+          requires:
+            - build
